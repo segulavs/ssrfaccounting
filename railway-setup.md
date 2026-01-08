@@ -105,6 +105,14 @@ VITE_API_URL=http://localhost:8000
 ## Notes
 
 - The app uses Nixpacks for automatic build detection
+- Node.js 20.x is used (configured in `nixpacks.toml`)
 - Frontend is built during deployment and served as static files
 - Backend serves both API and static frontend files
 - SQLite is used if `DATABASE_URL` is not set (not recommended for production)
+
+## Troubleshooting Build Issues
+
+If you encounter Node.js version errors:
+- The project uses Node.js 20.x (configured in `nixpacks.toml`)
+- Ensure your `package.json` engines field specifies `>=20.0.0`
+- Railway will automatically use the version specified in `nixpacks.toml`
