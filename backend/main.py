@@ -52,12 +52,6 @@ def get_db():
 def health_check():
     return {"status": "ok", "message": "SSRF Accounting API"}
 
-@app.get("/")
-def read_root():
-    # In production, this will be handled by the frontend route
-    # But we keep it for API-only access
-    return {"message": "SSRF Accounting API", "docs": "/docs"}
-
 
 @app.post("/api/upload-mt940", response_model=List[TransactionResponse])
 async def upload_mt940(file: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -908,8 +902,19 @@ def get_dashboard_stats(
 # Serve static files from frontend build directory (for production)
 # This must be added AFTER all API routes are defined
 frontend_build_path = Path(__file__).parent.parent / "frontend" / "dist"
-if frontend_build_path.exists():
-    app.mount("/static", StaticFiles(directory=str(frontend_build_path / "assets")), name="static")
+index_file = frontend_build_path / "index.html"
+
+# Check if frontend is built and available
+if frontend_build_path.exists() and index_file.exists():
+    # Mount static assets directory
+    assets_path = frontend_build_path / "assets"
+    if assets_path.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
+    
+    @app.get("/")
+    async def serve_root():
+        """Serve index.html for root path"""
+        return FileResponse(str(index_file))
     
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
@@ -918,15 +923,23 @@ if frontend_build_path.exists():
         if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("redoc") or full_path.startswith("openapi.json"):
             raise HTTPException(status_code=404, detail="Not found")
         
+        # Try to serve the requested file
         file_path = frontend_build_path / full_path
-        # Only serve actual files (with extensions), not directories
         if file_path.exists() and file_path.is_file() and file_path.suffix:
             return FileResponse(str(file_path))
         # For client-side routing (React Router), serve index.html
-        index_file = frontend_build_path / "index.html"
-        if index_file.exists():
-            return FileResponse(str(index_file))
-        raise HTTPException(status_code=404, detail="Frontend not found")
+        return FileResponse(str(index_file))
+else:
+    # Frontend not built - provide helpful error message
+    @app.get("/")
+    async def serve_root():
+        return {
+            "message": "Frontend not found",
+            "frontend_path": str(frontend_build_path),
+            "path_exists": frontend_build_path.exists(),
+            "index_exists": index_file.exists() if frontend_build_path.exists() else False,
+            "docs": "/docs"
+        }
 
 
 if __name__ == "__main__":
