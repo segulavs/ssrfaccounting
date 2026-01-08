@@ -36,6 +36,7 @@ class TransactionCreate(TransactionBase):
 class TransactionUpdate(BaseModel):
     project_id: Optional[int] = None
     description: Optional[str] = None
+    project_ids: Optional[List[int]] = None  # For multiple projects (amount split in calculations, not in UI)
 
 
 class TransactionResponse(TransactionBase):
@@ -43,8 +44,9 @@ class TransactionResponse(TransactionBase):
     reference: Optional[str] = None
     account_number: Optional[str] = None
     statement_number: Optional[str] = None
-    project_id: Optional[int] = None
-    project: Optional[ProjectResponse] = None
+    project_id: Optional[int] = None  # Keep for backward compatibility
+    project: Optional[ProjectResponse] = None  # Keep for backward compatibility (first project)
+    projects: Optional[List[ProjectResponse]] = None  # All projects assigned to this transaction
     upload_batch_id: Optional[str] = None
     created_at: datetime
     
@@ -61,12 +63,19 @@ class CashTransactionBase(BaseModel):
 
 
 class CashTransactionCreate(CashTransactionBase):
-    pass
+    project_ids: Optional[List[int]] = None  # For multiple projects
+
+
+class CashTransactionUpdate(BaseModel):
+    project_id: Optional[int] = None
+    description: Optional[str] = None
+    project_ids: Optional[List[int]] = None  # For multiple projects (amount split in calculations, not in UI)
 
 
 class CashTransactionResponse(CashTransactionBase):
     id: int
-    project: Optional[ProjectResponse] = None
+    project: Optional[ProjectResponse] = None  # Keep for backward compatibility (first project)
+    projects: Optional[List[ProjectResponse]] = None  # All projects assigned to this transaction
     created_at: datetime
     
     class Config:

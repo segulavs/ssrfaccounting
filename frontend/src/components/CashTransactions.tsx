@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api, CashTransaction, Project } from '../api/client'
 import { format } from 'date-fns'
 
@@ -12,9 +12,13 @@ export default function CashTransactions() {
     amount: '',
     currency: 'EUR',
     description: '',
-    project_id: undefined as number | undefined,
+    selectedProjectIds: [] as number[],
   })
   const [selectedProject, setSelectedProject] = useState<number | undefined>(undefined)
+  const [projectSearchTerm, setProjectSearchTerm] = useState('')
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false)
+  const projectDropdownRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadTransactions()
@@ -47,19 +51,50 @@ export default function CashTransactions() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await api.createCashTransaction({
-        ...formData,
-        amount: parseFloat(formData.amount),
-        project_id: formData.project_id || undefined,
-      })
+      const amount = parseFloat(formData.amount)
+      const selectedProjects = formData.selectedProjectIds
+      
+      if (selectedProjects.length === 0) {
+        // No projects selected, create single transaction without project
+        await api.createCashTransaction({
+          date: formData.date,
+          amount: amount,
+          currency: formData.currency,
+          description: formData.description,
+          project_id: undefined,
+        })
+      } else if (selectedProjects.length === 1) {
+        // Single project selected, create one transaction
+        await api.createCashTransaction({
+          date: formData.date,
+          amount: amount,
+          currency: formData.currency,
+          description: formData.description,
+          project_id: selectedProjects[0],
+        })
+      } else {
+        // Multiple projects selected, split amount across all projects
+        const splitAmount = amount / selectedProjects.length
+        for (const projectId of selectedProjects) {
+          await api.createCashTransaction({
+            date: formData.date,
+            amount: splitAmount,
+            currency: formData.currency,
+            description: formData.description,
+            project_id: projectId,
+          })
+        }
+      }
+      
       setShowForm(false)
       setFormData({
         date: format(new Date(), 'yyyy-MM-dd'),
         amount: '',
         currency: 'EUR',
         description: '',
-        project_id: undefined,
+        selectedProjectIds: [],
       })
+      setProjectSearchTerm('')
       await loadTransactions()
     } catch (error) {
       console.error('Failed to create cash transaction:', error)
@@ -78,6 +113,49 @@ export default function CashTransactions() {
       alert('Failed to delete transaction')
     }
   }
+
+  const addProjectTag = (projectId: number) => {
+    if (!formData.selectedProjectIds.includes(projectId)) {
+      setFormData({
+        ...formData,
+        selectedProjectIds: [...formData.selectedProjectIds, projectId],
+      })
+    }
+    setProjectSearchTerm('')
+    setShowProjectDropdown(false)
+  }
+
+  const removeProjectTag = (projectId: number) => {
+    setFormData({
+      ...formData,
+      selectedProjectIds: formData.selectedProjectIds.filter((id) => id !== projectId),
+    })
+  }
+
+  const filteredProjects = projects.filter(
+    (project) =>
+      project.name.toLowerCase().includes(projectSearchTerm.toLowerCase()) &&
+      !formData.selectedProjectIds.includes(project.id)
+  )
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        projectDropdownRef.current &&
+        !projectDropdownRef.current.contains(event.target as Node) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(event.target as Node)
+      ) {
+        setShowProjectDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   return (
     <div className="px-4 py-6">
@@ -133,6 +211,11 @@ export default function CashTransactions() {
                 placeholder="Negative for expenses"
                 className="w-full border border-gray-300 rounded-md px-3 py-2"
               />
+              {formData.amount && formData.selectedProjectIds.length > 1 && (
+                <p className="mt-1 text-sm text-gray-500">
+                  Split amount: {(parseFloat(formData.amount) / formData.selectedProjectIds.length).toFixed(2)} {formData.currency} per project
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
@@ -146,22 +229,66 @@ export default function CashTransactions() {
                 <option value="GBP">GBP</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
-              <select
-                value={formData.project_id || ''}
-                onChange={(e) =>
-                  setFormData({ ...formData, project_id: e.target.value ? parseInt(e.target.value) : undefined })
-                }
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
-              >
-                <option value="">No Project</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Projects (Tags)</label>
+              <div className="relative">
+                <div className="flex flex-wrap gap-2 p-2 border border-gray-300 rounded-md min-h-[42px] bg-white">
+                  {formData.selectedProjectIds.map((projectId) => {
+                    const project = projects.find((p) => p.id === projectId)
+                    return project ? (
+                      <span
+                        key={projectId}
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                      >
+                        {project.name}
+                        <button
+                          type="button"
+                          onClick={() => removeProjectTag(projectId)}
+                          className="text-blue-600 hover:text-blue-800 focus:outline-none"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ) : null
+                  })}
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={projectSearchTerm}
+                    onChange={(e) => {
+                      setProjectSearchTerm(e.target.value)
+                      setShowProjectDropdown(true)
+                    }}
+                    onFocus={() => setShowProjectDropdown(true)}
+                    placeholder={formData.selectedProjectIds.length === 0 ? 'Type to search projects...' : 'Add another project...'}
+                    className="flex-1 min-w-[150px] border-0 outline-none focus:ring-0"
+                  />
+                </div>
+                {showProjectDropdown && filteredProjects.length > 0 && (
+                  <div
+                    ref={projectDropdownRef}
+                    className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+                  >
+                    {filteredProjects.map((project) => (
+                      <button
+                        key={project.id}
+                        type="button"
+                        onClick={() => addProjectTag(project.id)}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                      >
+                        {project.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                {formData.selectedProjectIds.length === 0
+                  ? 'No projects selected. Amount will not be assigned to any project.'
+                  : formData.selectedProjectIds.length === 1
+                  ? 'Single project selected. Full amount will be assigned to this project.'
+                  : `${formData.selectedProjectIds.length} projects selected. Amount will be split equally between projects.`}
+              </p>
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>

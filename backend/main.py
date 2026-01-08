@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime, date
@@ -500,14 +500,34 @@ def get_transactions(
     query = db.query(Transaction)
     
     if project_id:
-        query = query.filter(Transaction.project_id == project_id)
+        # Filter by project (either in project_id or in projects relationship)
+        query = query.filter(
+            (Transaction.project_id == project_id) |
+            (Transaction.projects.any(Project.id == project_id))
+        )
     if start_date:
         query = query.filter(Transaction.date >= start_date)
     if end_date:
         query = query.filter(Transaction.date <= end_date)
     
-    transactions = query.order_by(Transaction.date.desc()).all()
-    return [TransactionResponse.model_validate(t) for t in transactions]
+    # Eagerly load projects relationship
+    transactions = query.options(joinedload(Transaction.projects)).order_by(Transaction.date.desc()).all()
+    
+    # Build responses with all projects
+    result = []
+    for t in transactions:
+        response = TransactionResponse.model_validate(t)
+        # Load projects from the many-to-many relationship
+        response.projects = [ProjectResponse.model_validate(p) for p in t.projects] if t.projects else []
+        # Keep backward compatibility - set project and project_id from first project or old project_id
+        if not response.projects and t.project_id:
+            # If no projects in many-to-many but project_id exists, get that project
+            project = db.query(Project).filter(Project.id == t.project_id).first()
+            if project:
+                response.projects = [ProjectResponse.model_validate(project)]
+        result.append(response)
+    
+    return result
 
 
 @app.get("/api/transactions/{transaction_id}", response_model=TransactionResponse)
@@ -525,24 +545,57 @@ def update_transaction(
     transaction_update: TransactionUpdate,
     db: Session = Depends(get_db)
 ):
-    """Update a transaction (e.g., tag to project)"""
+    """Update a transaction (e.g., tag to project). Multiple projects are stored but transaction remains intact."""
     transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
     
-    if transaction_update.project_id is not None:
+    # Handle multiple projects (store without splitting)
+    if transaction_update.project_ids is not None:
+        project_ids = transaction_update.project_ids
+        
+        # Verify all projects exist
+        for project_id in project_ids:
+            project = db.query(Project).filter(Project.id == project_id).first()
+            if not project:
+                raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+        
+        # Clear existing project associations
+        transaction.projects = []
+        
+        # Add new project associations
+        if len(project_ids) > 0:
+            projects = db.query(Project).filter(Project.id.in_(project_ids)).all()
+            transaction.projects = projects
+            # Keep project_id for backward compatibility (first project)
+            transaction.project_id = project_ids[0] if len(project_ids) == 1 else None
+        else:
+            transaction.project_id = None
+    
+    # Handle single project_id (backward compatibility)
+    elif transaction_update.project_id is not None:
         # Verify project exists
         project = db.query(Project).filter(Project.id == transaction_update.project_id).first()
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
         transaction.project_id = transaction_update.project_id
+        # Update projects relationship for consistency
+        transaction.projects = [project]
+    elif transaction_update.project_id is None and transaction_update.project_ids is None:
+        # Explicitly remove projects (passing None for project_id)
+        transaction.project_id = None
+        transaction.projects = []
     
     if transaction_update.description is not None:
         transaction.description = transaction_update.description
     
     db.commit()
     db.refresh(transaction)
-    return TransactionResponse.model_validate(transaction)
+    
+    # Build response with all projects
+    response = TransactionResponse.model_validate(transaction)
+    response.projects = [ProjectResponse.model_validate(p) for p in transaction.projects]
+    return response
 
 
 @app.delete("/api/transactions/{transaction_id}")

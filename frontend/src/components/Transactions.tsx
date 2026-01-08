@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api, Transaction, Project } from '../api/client'
 import { format } from 'date-fns'
 
@@ -9,7 +9,11 @@ export default function Transactions() {
   const [uploading, setUploading] = useState(false)
   const [selectedProject, setSelectedProject] = useState<number | undefined>(undefined)
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [editProjectId, setEditProjectId] = useState<number | undefined>(undefined)
+  const [editProjectIds, setEditProjectIds] = useState<number[]>([])
+  const [projectSearchTerm, setProjectSearchTerm] = useState('')
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false)
+  const projectDropdownRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [csvPreview, setCsvPreview] = useState<{ columns: string[]; sample_rows: any[] } | null>(null)
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
@@ -186,14 +190,87 @@ export default function Transactions() {
 
   const handleUpdateProject = async (transactionId: number) => {
     try {
-      await api.updateTransaction(transactionId, { project_id: editProjectId })
+      const transaction = transactions.find((t) => t.id === transactionId)
+      if (!transaction) return
+
+      if (editProjectIds.length === 0) {
+        // No projects selected, remove project assignment
+        await api.updateTransaction(transactionId, { project_id: undefined })
+      } else if (editProjectIds.length === 1) {
+        // Single project, update normally
+        await api.updateTransaction(transactionId, { project_id: editProjectIds[0] })
+      } else {
+        // Multiple projects, split the transaction
+        // This will create multiple transactions and delete the original
+        const result = await api.updateTransaction(transactionId, { project_ids: editProjectIds })
+        // Result could be an array of transactions if split, or single transaction
+        if (Array.isArray(result)) {
+          // Transaction was split into multiple transactions
+          // loadTransactions will refresh the list
+        }
+      }
+      
       setEditingId(null)
+      setEditProjectIds([])
+      setProjectSearchTerm('')
+      setShowProjectDropdown(false)
       await loadTransactions()
     } catch (error) {
       console.error('Failed to update transaction:', error)
       alert('Failed to update transaction')
     }
   }
+
+  const addProjectTag = (projectId: number) => {
+    if (!editProjectIds.includes(projectId)) {
+      setEditProjectIds([...editProjectIds, projectId])
+      setProjectSearchTerm('')
+      // Keep dropdown open if there are more projects to add
+      setTimeout(() => {
+        if (getFilteredProjects([...editProjectIds, projectId]).length > 0) {
+          searchInputRef.current?.focus()
+        } else {
+          setShowProjectDropdown(false)
+        }
+      }, 10)
+    }
+  }
+
+  const removeProjectTag = (projectId: number) => {
+    setEditProjectIds(editProjectIds.filter((id) => id !== projectId))
+  }
+
+  const getFilteredProjects = (currentProjectIds: number[]) => {
+    return projects.filter(
+      (project) =>
+        project.name.toLowerCase().includes(projectSearchTerm.toLowerCase()) &&
+        !currentProjectIds.includes(project.id)
+    )
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (
+        editingId !== null &&
+        projectDropdownRef.current &&
+        !projectDropdownRef.current.contains(target) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(target)
+      ) {
+        // Only close if clicking outside both input and dropdown
+        setShowProjectDropdown(false)
+      }
+    }
+
+    if (editingId !== null) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [editingId, projectDropdownRef, searchInputRef])
 
   const handleDeleteBatch = async (batchId: string) => {
     if (!confirm('Are you sure you want to delete all transactions from this upload? This cannot be undone.')) {
@@ -328,32 +405,155 @@ export default function Transactions() {
                 ) : (
                   transactions.map((t) => (
                     <tr key={t.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-6 py-4 text-sm">
                         {editingId === t.id ? (
-                          <select
-                            value={editProjectId || ''}
-                            onChange={(e) => setEditProjectId(e.target.value ? parseInt(e.target.value) : undefined)}
-                            className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                            onBlur={() => handleUpdateProject(t.id)}
-                            autoFocus
-                          >
-                            <option value="">No Project</option>
-                            {projects.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="relative w-full max-w-xs">
+                            <div className="flex flex-wrap gap-2 p-2 border border-gray-300 rounded-md min-h-[36px] bg-white">
+                              {editProjectIds.map((projectId) => {
+                                const project = projects.find((p) => p.id === projectId)
+                                return project ? (
+                                  <span
+                                    key={projectId}
+                                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
+                                  >
+                                    {project.name}
+                                    <button
+                                      type="button"
+                                      onClick={() => removeProjectTag(projectId)}
+                                      className="text-blue-600 hover:text-blue-800 focus:outline-none"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ) : null
+                              })}
+                              <input
+                                ref={searchInputRef}
+                                type="text"
+                                value={projectSearchTerm}
+                                onChange={(e) => {
+                                  setProjectSearchTerm(e.target.value)
+                                  setShowProjectDropdown(true)
+                                }}
+                                onFocus={() => {
+                                  setShowProjectDropdown(true)
+                                  // Ensure dropdown shows available projects
+                                  if (getFilteredProjects(editProjectIds).length > 0) {
+                                    setShowProjectDropdown(true)
+                                  }
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    const filtered = getFilteredProjects(editProjectIds)
+                                    if (filtered.length > 0) {
+                                      // Add first matching project
+                                      addProjectTag(filtered[0].id)
+                                    }
+                                  } else if (e.key === 'Escape') {
+                                    setShowProjectDropdown(false)
+                                  }
+                                }}
+                                placeholder={editProjectIds.length === 0 ? 'Type to search projects...' : 'Add another project...'}
+                                className="flex-1 min-w-[120px] border-0 outline-none focus:ring-0 text-sm"
+                                autoFocus
+                              />
+                            </div>
+                            {showProjectDropdown && getFilteredProjects(editProjectIds).length > 0 && (
+                              <div
+                                ref={projectDropdownRef}
+                                className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+                              >
+                                {getFilteredProjects(editProjectIds).length > 0 ? (
+                                  getFilteredProjects(editProjectIds).map((project) => (
+                                    <button
+                                      key={project.id}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        addProjectTag(project.id)
+                                      }}
+                                      className="w-full text-left px-4 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none text-sm"
+                                    >
+                                      {project.name}
+                                    </button>
+                                  ))
+                                ) : (
+                                  <div className="px-4 py-2 text-sm text-gray-500">
+                                    No projects found
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {editProjectIds.length > 1 && (
+                              <p className="mt-1 text-xs text-gray-500">
+                                Amount will be split: {(t.amount / editProjectIds.length).toFixed(2)} {t.currency} per project
+                              </p>
+                            )}
+                            <div className="mt-2 flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateProject(t.id)}
+                                className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingId(null)
+                                  setEditProjectIds([])
+                                  setProjectSearchTerm('')
+                                  setShowProjectDropdown(false)
+                                }}
+                                className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
                         ) : (
-                          <span
-                            className="text-blue-600 cursor-pointer hover:underline"
-                            onClick={() => {
-                              setEditingId(t.id)
-                              setEditProjectId(t.project_id)
-                            }}
-                          >
-                            {t.project?.name || 'Click to tag'}
-                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {t.projects && t.projects.length > 0 ? (
+                              t.projects.map((project) => (
+                                <span
+                                  key={project.id}
+                                  className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
+                                >
+                                  {project.name}
+                                </span>
+                              ))
+                            ) : (
+                              <span
+                                className="text-blue-600 cursor-pointer hover:underline"
+                                onClick={() => {
+                                  setEditingId(t.id)
+                                  // Initialize with existing projects or empty array
+                                  const existingProjectIds = t.projects ? t.projects.map(p => p.id) : (t.project_id ? [t.project_id] : [])
+                                  setEditProjectIds(existingProjectIds)
+                                  setProjectSearchTerm('')
+                                  setShowProjectDropdown(false)
+                                }}
+                              >
+                                Click to tag
+                              </span>
+                            )}
+                            {t.projects && t.projects.length > 0 && (
+                              <span
+                                className="text-blue-600 cursor-pointer hover:underline text-xs ml-1"
+                                onClick={() => {
+                                  setEditingId(t.id)
+                                  // Initialize with existing projects
+                                  setEditProjectIds(t.projects!.map(p => p.id))
+                                  setProjectSearchTerm('')
+                                  setShowProjectDropdown(false)
+                                }}
+                              >
+                                Edit
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

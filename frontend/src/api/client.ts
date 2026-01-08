@@ -21,6 +21,7 @@ export interface Transaction {
   statement_number?: string
   project_id?: number
   project?: Project
+  projects?: Project[]  // Multiple projects assigned to this transaction
   created_at: string
 }
 
@@ -32,6 +33,7 @@ export interface CashTransaction {
   description?: string
   project_id?: number
   project?: Project
+  projects?: Project[]  // Multiple projects assigned to this transaction
   created_at: string
 }
 
@@ -107,8 +109,8 @@ export const api = {
 
   updateTransaction: async (
     id: number,
-    data: { project_id?: number; description?: string }
-  ): Promise<Transaction> => {
+    data: { project_id?: number | undefined; project_ids?: number[]; description?: string }
+  ): Promise<Transaction | Transaction[]> => {
     const response = await apiClient.patch(`/api/transactions/${id}`, data)
     return response.data
   },
