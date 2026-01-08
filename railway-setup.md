@@ -116,3 +116,43 @@ If you encounter Node.js version errors:
 - The project uses Node.js 20.x (configured in `nixpacks.toml`)
 - Ensure your `package.json` engines field specifies `>=20.0.0`
 - Railway will automatically use the version specified in `nixpacks.toml`
+
+## Resource Requirements
+
+### Minimum Resources (Testing/Small Scale)
+- **vCPU**: 0.25 vCPU
+- **RAM**: 512 MB
+- **Use Case**: Development, testing, or very small transaction volumes (< 1,000 transactions)
+
+**Note**: With minimum resources, large MT940 file uploads may timeout or fail.
+
+### Recommended Resources (Production)
+- **vCPU**: 0.5 - 1 vCPU
+- **RAM**: 1 GB
+- **Use Case**: Small to medium business (< 10,000 transactions, < 100 MB files)
+
+### Optimal Resources (Heavy Usage)
+- **vCPU**: 1+ vCPU
+- **RAM**: 2 GB
+- **Use Case**: Large transaction volumes (> 10,000 transactions), frequent file uploads, complex analytics queries
+
+### Resource Considerations
+
+1. **File Processing**: MT940 and CSV file uploads are memory-intensive. Larger files (> 10 MB) benefit from 1GB+ RAM.
+
+2. **Database**: 
+   - SQLite (default): Suitable for < 10,000 transactions with 512MB-1GB RAM
+   - PostgreSQL (recommended): Better performance and can handle larger datasets, uses separate Railway service (doesn't count toward app resources)
+
+3. **Dashboard Analytics**: Aggregating large datasets (filtering by date ranges, calculating project stats) benefits from additional CPU.
+
+4. **Frontend**: Static files are served from FastAPI, no additional runtime resources needed.
+
+### Setting Resources in Railway
+
+1. Go to your service in Railway dashboard
+2. Click on "Settings" → "Resources"
+3. Adjust the CPU and Memory sliders
+4. Save changes (will trigger a redeploy)
+
+**Cost Note**: Railway charges based on usage. Start with minimum resources and scale up based on actual performance needs.
