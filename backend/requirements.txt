@@ -6,3 +6,4 @@ python-multipart>=0.0.12
 python-dateutil>=2.9.0
 mt940==0.7.0
 pydantic-settings>=2.6.0
+psycopg2-binary>=2.9.0
