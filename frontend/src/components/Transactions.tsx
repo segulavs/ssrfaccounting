@@ -610,7 +610,7 @@ export default function Transactions() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {fieldOrder.map((fieldKey, index) => {
+                      {fieldOrder.map((fieldKey) => {
                         const field = fieldConfig[fieldKey]
                         if (!field) return null
                         
@@ -741,9 +741,9 @@ export default function Transactions() {
                   onClick={handleCSVUpload}
                   disabled={
                     uploading || 
-                    !columnMapping.date || 
+                    !columnMapping.date ||
                     (!columnMapping.amount && !columnMapping.debit && !columnMapping.credit) ||
-                    (columnMapping.transaction_type && !columnMapping.amount)
+                    (!!columnMapping.transaction_type && !columnMapping.amount)
                   }
                   className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >

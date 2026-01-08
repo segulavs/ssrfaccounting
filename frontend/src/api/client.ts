@@ -115,7 +115,7 @@ export const api = {
     return response.data
   },
 
-  deleteTransaction: async (id: number): Promise<void> => {
+  deleteTransaction: async (_id: number): Promise<void> => {
     // Bank transactions cannot be deleted
     throw new Error('Bank transactions cannot be deleted')
   },
