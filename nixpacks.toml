@@ -1,10 +1,11 @@
 [phases.setup]
-nixPkgs = ["python3", "python3Packages.pip", "nodejs_20"]
+nixPkgs = ["python3", "nodejs_20"]
 
 [phases.install]
 cmds = [
-  "python3 -m ensurepip --upgrade",
-  "cd backend && python3 -m pip install -r requirements.txt",
+  "cd backend && python3 -m venv --without-pip venv",
+  "cd backend && source venv/bin/activate && python3 -c \"import urllib.request; urllib.request.urlretrieve('https://bootstrap.pypa.io/get-pip.py', 'get-pip.py')\" && python get-pip.py && rm get-pip.py",
+  "cd backend && source venv/bin/activate && pip install -r requirements.txt",
   "cd frontend && npm install && npm run build"
 ]
 
@@ -12,4 +13,4 @@ cmds = [
 cmds = []
 
 [start]
-cmd = "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT"
+cmd = "cd backend && source venv/bin/activate && python -m uvicorn main:app --host 0.0.0.0 --port $PORT"
