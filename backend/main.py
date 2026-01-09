@@ -18,7 +18,7 @@ from models import Transaction, Project, CashTransaction
 from schemas import (
     TransactionCreate, TransactionResponse, TransactionUpdate,
     ProjectCreate, ProjectResponse,
-    CashTransactionCreate, CashTransactionResponse,
+    CashTransactionCreate, CashTransactionResponse, CashTransactionUpdate,
     DashboardStats, PeriodFilter, ProjectStats,
     CSVColumnMapping, CSVPreviewResponse, UploadBatchResponse
 )
@@ -742,16 +742,49 @@ def create_cash_transaction(
     db: Session = Depends(get_db)
 ):
     """Create a cash transaction"""
-    if transaction.project_id:
-        project = db.query(Project).filter(Project.id == transaction.project_id).first()
+    # Extract project_ids and remove from dict (model doesn't have this field)
+    transaction_data = transaction.dict()
+    project_ids = transaction_data.pop('project_ids', None)
+    project_id = transaction_data.get('project_id')
+    
+    # Handle project_ids (multiple projects)
+    if project_ids:
+        # Verify all projects exist
+        for pid in project_ids:
+            project = db.query(Project).filter(Project.id == pid).first()
+            if not project:
+                raise HTTPException(status_code=404, detail=f"Project {pid} not found")
+    
+    # Handle single project_id (backward compatibility)
+    elif project_id:
+        project = db.query(Project).filter(Project.id == project_id).first()
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
     
-    db_transaction = CashTransaction(**transaction.dict())
+    # Create the transaction (without project_ids field)
+    db_transaction = CashTransaction(**transaction_data)
     db.add(db_transaction)
+    db.flush()  # Flush to get the ID before setting relationships
+    
+    # Set up many-to-many relationship for multiple projects
+    if project_ids:
+        projects = db.query(Project).filter(Project.id.in_(project_ids)).all()
+        db_transaction.projects = projects
+        # Set project_id to first project for backward compatibility
+        db_transaction.project_id = project_ids[0] if len(project_ids) == 1 else None
+    elif project_id:
+        # Single project - set both project_id and projects relationship
+        project = db.query(Project).filter(Project.id == project_id).first()
+        db_transaction.project_id = project_id
+        db_transaction.projects = [project]
+    
     db.commit()
     db.refresh(db_transaction)
-    return CashTransactionResponse.model_validate(db_transaction)
+    
+    # Build response with all projects
+    response = CashTransactionResponse.model_validate(db_transaction)
+    response.projects = [ProjectResponse.model_validate(p) for p in db_transaction.projects] if db_transaction.projects else []
+    return response
 
 
 @app.get("/api/cash-transactions", response_model=List[CashTransactionResponse])
@@ -765,20 +798,40 @@ def get_cash_transactions(
     query = db.query(CashTransaction)
     
     if project_id:
-        query = query.filter(CashTransaction.project_id == project_id)
+        # Filter by project (either in project_id or in projects relationship)
+        query = query.filter(
+            (CashTransaction.project_id == project_id) |
+            (CashTransaction.projects.any(Project.id == project_id))
+        )
     if start_date:
         query = query.filter(CashTransaction.date >= start_date)
     if end_date:
         query = query.filter(CashTransaction.date <= end_date)
     
-    transactions = query.order_by(CashTransaction.date.desc()).all()
-    return [CashTransactionResponse.model_validate(t) for t in transactions]
+    # Eagerly load projects relationship
+    transactions = query.options(joinedload(CashTransaction.projects)).order_by(CashTransaction.date.desc()).all()
+    
+    # Build responses with all projects
+    result = []
+    for t in transactions:
+        response = CashTransactionResponse.model_validate(t)
+        # Load projects from the many-to-many relationship
+        response.projects = [ProjectResponse.model_validate(p) for p in t.projects] if t.projects else []
+        # Keep backward compatibility - set project from first project or old project_id
+        if not response.projects and t.project_id:
+            # If no projects in many-to-many but project_id exists, get that project
+            project = db.query(Project).filter(Project.id == t.project_id).first()
+            if project:
+                response.projects = [ProjectResponse.model_validate(project)]
+        result.append(response)
+    
+    return result
 
 
 @app.patch("/api/cash-transactions/{transaction_id}", response_model=CashTransactionResponse)
 def update_cash_transaction(
     transaction_id: int,
-    transaction_update: CashTransactionCreate,
+    transaction_update: CashTransactionUpdate,
     db: Session = Depends(get_db)
 ):
     """Update a cash transaction"""
@@ -786,12 +839,57 @@ def update_cash_transaction(
     if not transaction:
         raise HTTPException(status_code=404, detail="Cash transaction not found")
     
-    for key, value in transaction_update.dict().items():
-        setattr(transaction, key, value)
+    # Extract project_ids and handle separately
+    update_data = transaction_update.dict()
+    project_ids = update_data.pop('project_ids', None)
+    project_id = update_data.pop('project_id', None)
+    
+    # Update other fields (excluding project-related fields)
+    for key, value in update_data.items():
+        if value is not None:
+            setattr(transaction, key, value)
+    
+    # Handle multiple projects (project_ids)
+    if project_ids is not None:
+        # Verify all projects exist
+        for pid in project_ids:
+            project = db.query(Project).filter(Project.id == pid).first()
+            if not project:
+                raise HTTPException(status_code=404, detail=f"Project {pid} not found")
+        
+        # Clear existing project associations
+        transaction.projects = []
+        
+        # Add new project associations
+        if len(project_ids) > 0:
+            projects = db.query(Project).filter(Project.id.in_(project_ids)).all()
+            transaction.projects = projects
+            # Keep project_id for backward compatibility (first project)
+            transaction.project_id = project_ids[0] if len(project_ids) == 1 else None
+        else:
+            transaction.project_id = None
+    
+    # Handle single project_id (backward compatibility)
+    elif project_id is not None:
+        # Verify project exists
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        transaction.project_id = project_id
+        # Update projects relationship for consistency
+        transaction.projects = [project]
+    elif project_id is None and project_ids is None:
+        # Explicitly remove projects (passing None for project_id)
+        transaction.project_id = None
+        transaction.projects = []
     
     db.commit()
     db.refresh(transaction)
-    return CashTransactionResponse.model_validate(transaction)
+    
+    # Build response with all projects
+    response = CashTransactionResponse.model_validate(transaction)
+    response.projects = [ProjectResponse.model_validate(p) for p in transaction.projects] if transaction.projects else []
+    return response
 
 
 @app.delete("/api/cash-transactions/{transaction_id}")
