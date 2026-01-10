@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { subscriptionAPI, portfolioAPI, investmentAPI } from '../../api/portfolioClient'
+import { subscriptionAPI, portfolioAPI } from '../../api/portfolioClient'
 
 interface User {
   id: number
@@ -12,6 +12,7 @@ interface Opportunity {
   title: string
   currency: string
   type: string
+  investment_amount: number | null
 }
 
 interface Subscription {
@@ -73,7 +74,8 @@ export default function SubscriptionManagement() {
   const loadPortfolios = async () => {
     try {
       const data = await portfolioAPI.getPortfolios()
-      setPortfolios(data.filter((p: Portfolio) => p.is_active))
+      // Filter portfolios - if they have a status field, filter by it, otherwise include all
+      setPortfolios(data.filter((p: any) => !('is_active' in p) || p.is_active === true))
     } catch (err: any) {
       console.error('Failed to load portfolios:', err)
     }

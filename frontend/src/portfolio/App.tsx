@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { authAPI } from '../api/portfolioClient'
 import Login from './components/Login'
 import Register from './components/Register'
 import PortfolioDashboard from './components/PortfolioDashboard'
@@ -44,7 +45,6 @@ function App() {
   }
 
   const handleLogout = () => {
-    const { authAPI } = require('../api/portfolioClient')
     authAPI.logout()
     setUser(null)
     setIsAuthenticated(false)
