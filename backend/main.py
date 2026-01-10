@@ -25,13 +25,32 @@ from schemas import (
 from typing import Union
 from portfolio_api import router as portfolio_router
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Create database tables - wrap in try/except to prevent startup crashes
+try:
+    Base.metadata.create_all(bind=engine)
+    print("Database tables created successfully")
+except Exception as e:
+    print(f"Warning: Could not create database tables: {e}")
+    print("Server will continue, but database operations may fail")
 
 app = FastAPI(title="SSRF Accounting API")
 
+# Add startup event to log server initialization
+@app.on_event("startup")
+async def startup_event():
+    print("=" * 50)
+    print("SSRF Accounting API Server Starting...")
+    print(f"Python version: {__import__('sys').version}")
+    print(f"Working directory: {os.getcwd()}")
+    print(f"Backend directory: {Path(__file__).parent}")
+    print("=" * 50)
+
 # Include portfolio API router
-app.include_router(portfolio_router)
+try:
+    app.include_router(portfolio_router)
+    print("Portfolio router included successfully")
+except Exception as e:
+    print(f"Warning: Could not include portfolio router: {e}")
 
 # CORS middleware - allow origins from environment variable
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
@@ -54,7 +73,17 @@ def get_db():
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "message": "SSRF Accounting API"}
+    """Health check endpoint - doesn't require database or static files"""
+    return {
+        "status": "ok", 
+        "message": "SSRF Accounting API",
+        "frontend_built": frontend_build_path.exists() and index_file.exists()
+    }
+
+@app.get("/health")
+def simple_health_check():
+    """Simple health check for Railway/deployment monitoring"""
+    return {"status": "ok", "service": "SSRF Accounting API"}
 
 
 @app.post("/api/upload-mt940", response_model=List[TransactionResponse])
@@ -1003,21 +1032,42 @@ def get_dashboard_stats(
 
 # Serve static files from frontend build directory (for production)
 # This must be added AFTER all API routes are defined
+# Use absolute path to ensure it works in Railway deployment
 frontend_build_path = Path(__file__).parent.parent / "frontend" / "dist"
 index_file = frontend_build_path / "index.html"  # Shri Sai Ram Financials (default)
 accounting_file = frontend_build_path / "accounting.html"
 portfolio_file = frontend_build_path / "portfolio.html"
+
+# Print debug info (will appear in Railway logs)
+print(f"Frontend build path: {frontend_build_path}")
+print(f"Frontend build path exists: {frontend_build_path.exists()}")
+if frontend_build_path.exists():
+    try:
+        files = list(frontend_build_path.iterdir())
+        print(f"Files in dist: {[f.name for f in files[:10]]}")  # Print first 10 files
+    except Exception as e:
+        print(f"Error listing dist directory: {e}")
+print(f"Index file path: {index_file}")
+print(f"Index file exists: {index_file.exists() if frontend_build_path.exists() else False}")
 
 # Check if frontend is built and available
 if frontend_build_path.exists() and index_file.exists():
     # Mount static assets directory
     assets_path = frontend_build_path / "assets"
     if assets_path.exists():
-        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
+        try:
+            app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
+            print(f"Mounted assets directory: {assets_path}")
+        except Exception as e:
+            print(f"Warning: Could not mount assets directory: {e}")
+    else:
+        print(f"Warning: Assets directory not found: {assets_path}")
     
     @app.get("/")
     async def serve_root():
         """Serve Shri Sai Ram Financials (default index.html) for root path"""
+        if not index_file.exists():
+            raise HTTPException(status_code=500, detail=f"Index file not found at {index_file}")
         return FileResponse(str(index_file))
     
     @app.get("/accounting")
@@ -1071,17 +1121,25 @@ if frontend_build_path.exists() and index_file.exists():
         # Default: serve Shri Sai Ram Financials (index.html) for all other routes
         return FileResponse(str(index_file))
 else:
-    # Frontend not built - provide helpful error message
+    # Frontend not built - provide helpful error message with debug info
     @app.get("/")
     async def serve_root():
+        import os
+        current_dir = os.getcwd()
         return {
             "message": "Frontend not found",
             "frontend_path": str(frontend_build_path),
+            "absolute_frontend_path": str(frontend_build_path.resolve()),
             "path_exists": frontend_build_path.exists(),
             "index_exists": index_file.exists() if frontend_build_path.exists() else False,
+            "current_directory": current_dir,
+            "backend_file_location": str(Path(__file__).parent),
             "docs": "/docs",
-            "note": "Run 'cd frontend && npm run build' to build the frontend"
+            "note": "Frontend build not found. Ensure 'cd frontend && npm run build' was run successfully during build phase."
         }
+    
+    # Still provide API endpoints even if frontend is not built
+    print("WARNING: Frontend build not found. API endpoints are available but frontend will not be served.")
 
 
 if __name__ == "__main__":
