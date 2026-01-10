@@ -1072,21 +1072,22 @@ if frontend_build_path.exists() and index_file.exists():
     
     @app.get("/accounting.html")
     async def serve_accounting_html():
-        """Serve accounting.html directly"""
-        if accounting_file.exists():
-            return FileResponse(str(accounting_file))
-        raise HTTPException(status_code=404, detail="accounting.html not found")
+        """Redirect accounting.html to /accounting/ for proper routing"""
+        return RedirectResponse(url="/accounting/", status_code=301)
     
     @app.get("/portfolio.html")
     async def serve_portfolio_html():
-        """Serve portfolio.html directly"""
-        if portfolio_file.exists():
-            return FileResponse(str(portfolio_file))
-        raise HTTPException(status_code=404, detail="portfolio.html not found")
+        """Redirect portfolio.html to /portfolio/ for proper routing"""
+        return RedirectResponse(url="/portfolio/", status_code=301)
     
     @app.get("/accounting")
     async def serve_accounting_root():
-        """Serve SSRF Accounting app at /accounting"""
+        """Redirect /accounting to /accounting/ for proper routing"""
+        return RedirectResponse(url="/accounting/", status_code=301)
+    
+    @app.get("/accounting/")
+    async def serve_accounting_root_with_slash():
+        """Serve SSRF Accounting app at /accounting/"""
         if accounting_file.exists():
             return FileResponse(str(accounting_file))
         # Fallback to index if accounting.html doesn't exist
@@ -1094,7 +1095,12 @@ if frontend_build_path.exists() and index_file.exists():
     
     @app.get("/portfolio")
     async def serve_portfolio_root():
-        """Serve Portfolio app at /portfolio"""
+        """Redirect /portfolio to /portfolio/ for proper routing"""
+        return RedirectResponse(url="/portfolio/", status_code=301)
+    
+    @app.get("/portfolio/")
+    async def serve_portfolio_root_with_slash():
+        """Serve Portfolio app at /portfolio/"""
         if portfolio_file.exists():
             return FileResponse(str(portfolio_file))
         # Fallback to index if portfolio.html doesn't exist

@@ -26,8 +26,15 @@ client.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('portfolio_token');
       localStorage.removeItem('portfolio_user');
-      if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-        window.location.href = '/login';
+      const path = window.location.pathname;
+      // Only redirect if not already on login/register pages (handle both /portfolio/login and /login)
+      if (!path.includes('/login') && !path.includes('/register')) {
+        // If we're in portfolio app, redirect to /portfolio/login, otherwise /login
+        if (path.startsWith('/portfolio')) {
+          window.location.href = '/portfolio/login';
+        } else {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

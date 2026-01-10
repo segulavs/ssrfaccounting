@@ -6,11 +6,17 @@ import CashTransactions from './components/CashTransactions'
 
 function App() {
   // Determine basename - check if we're being served from /accounting route
-  // This works whether accessed via /accounting or /accounting.html
+  // Handle both /accounting and /accounting/ paths
   const getBasename = () => {
     const path = window.location.pathname
     // Check if path starts with /accounting (accounting app)
+    // Also handle /accounting.html which should redirect to /accounting/ in backend
     if (path.startsWith('/accounting')) {
+      // If we're on /accounting.html, redirect to /accounting/
+      if (path === '/accounting.html') {
+        window.location.replace('/accounting/')
+        return '/accounting' // Return value during redirect
+      }
       return '/accounting'
     }
     return '/'
