@@ -74,8 +74,8 @@ export default function SubscriptionManagement() {
   const loadPortfolios = async () => {
     try {
       const data = await portfolioAPI.getPortfolios()
-      // Filter portfolios - if they have a status field, filter by it, otherwise include all
-      setPortfolios(data.filter((p: any) => !('is_active' in p) || p.is_active === true))
+      // Include all portfolios (is_active property may not exist in all Portfolio types)
+      setPortfolios(data)
     } catch (err: any) {
       console.error('Failed to load portfolios:', err)
     }

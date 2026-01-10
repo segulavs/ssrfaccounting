@@ -26,7 +26,6 @@ function App() {
     const token = localStorage.getItem('portfolio_token')
     if (token) {
       try {
-        const { authAPI } = await import('../api/portfolioClient')
         const userData = await authAPI.getMe()
         setUser(userData)
         setIsAuthenticated(true)
