@@ -23,11 +23,15 @@ from schemas import (
     CSVColumnMapping, CSVPreviewResponse, UploadBatchResponse
 )
 from typing import Union
+from portfolio_api import router as portfolio_router
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="SSRF Accounting API")
+
+# Include portfolio API router
+app.include_router(portfolio_router)
 
 # CORS middleware - allow origins from environment variable
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
@@ -1000,7 +1004,9 @@ def get_dashboard_stats(
 # Serve static files from frontend build directory (for production)
 # This must be added AFTER all API routes are defined
 frontend_build_path = Path(__file__).parent.parent / "frontend" / "dist"
-index_file = frontend_build_path / "index.html"
+index_file = frontend_build_path / "index.html"  # Shri Sai Ram Financials (default)
+accounting_file = frontend_build_path / "accounting.html"
+portfolio_file = frontend_build_path / "portfolio.html"
 
 # Check if frontend is built and available
 if frontend_build_path.exists() and index_file.exists():
@@ -1011,21 +1017,58 @@ if frontend_build_path.exists() and index_file.exists():
     
     @app.get("/")
     async def serve_root():
-        """Serve index.html for root path"""
+        """Serve Shri Sai Ram Financials (default index.html) for root path"""
+        return FileResponse(str(index_file))
+    
+    @app.get("/accounting")
+    async def serve_accounting_root():
+        """Serve SSRF Accounting app at /accounting"""
+        if accounting_file.exists():
+            return FileResponse(str(accounting_file))
+        # Fallback to index if accounting.html doesn't exist
+        return FileResponse(str(index_file))
+    
+    @app.get("/portfolio")
+    async def serve_portfolio_root():
+        """Serve Portfolio app at /portfolio"""
+        if portfolio_file.exists():
+            return FileResponse(str(portfolio_file))
+        # Fallback to index if portfolio.html doesn't exist
         return FileResponse(str(index_file))
     
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        """Serve frontend files, with fallback to index.html for client-side routing"""
+        """Serve frontend files, with fallback to appropriate HTML for client-side routing"""
         # Don't serve API routes or docs
         if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("redoc") or full_path.startswith("openapi.json"):
             raise HTTPException(status_code=404, detail="Not found")
         
-        # Try to serve the requested file
+        # Handle specific HTML files directly
+        if full_path == "accounting.html":
+            if accounting_file.exists():
+                return FileResponse(str(accounting_file))
+            return FileResponse(str(index_file))
+        elif full_path == "portfolio.html":
+            if portfolio_file.exists():
+                return FileResponse(str(portfolio_file))
+            return FileResponse(str(index_file))
+        
+        # Try to serve the requested static file if it exists
         file_path = frontend_build_path / full_path
         if file_path.exists() and file_path.is_file() and file_path.suffix:
             return FileResponse(str(file_path))
-        # For client-side routing (React Router), serve index.html
+        
+        # For client-side routing (React Router), serve appropriate HTML file
+        # Check if path starts with accounting/ to serve accounting app (not just "accounting" since that's handled above)
+        if full_path.startswith("accounting/"):
+            if accounting_file.exists():
+                return FileResponse(str(accounting_file))
+        # Check if path starts with portfolio/ to serve portfolio app (not just "portfolio" since that's handled above)
+        elif full_path.startswith("portfolio/"):
+            if portfolio_file.exists():
+                return FileResponse(str(portfolio_file))
+        
+        # Default: serve Shri Sai Ram Financials (index.html) for all other routes
         return FileResponse(str(index_file))
 else:
     # Frontend not built - provide helpful error message
@@ -1036,7 +1079,8 @@ else:
             "frontend_path": str(frontend_build_path),
             "path_exists": frontend_build_path.exists(),
             "index_exists": index_file.exists() if frontend_build_path.exists() else False,
-            "docs": "/docs"
+            "docs": "/docs",
+            "note": "Run 'cd frontend && npm run build' to build the frontend"
         }
 
 

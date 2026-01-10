@@ -5,8 +5,19 @@ import Projects from './components/Projects'
 import CashTransactions from './components/CashTransactions'
 
 function App() {
+  // Determine basename - check if we're being served from /accounting route
+  // This works whether accessed via /accounting or /accounting.html
+  const getBasename = () => {
+    const path = window.location.pathname
+    // Check if path starts with /accounting (accounting app)
+    if (path.startsWith('/accounting')) {
+      return '/accounting'
+    }
+    return '/'
+  }
+  
   return (
-    <Router>
+    <Router basename={getBasename()}>
       <div className="min-h-screen bg-gray-50">
         <nav className="bg-white shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -9,6 +9,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    rollupOptions: {
+      input: {
+        main: './index.html', // Shri Sai Ram Financials (default)
+        accounting: './accounting.html',
+        portfolio: './portfolio.html',
+      },
+    },
   },
   define: {
     // Ensure environment variables are available
