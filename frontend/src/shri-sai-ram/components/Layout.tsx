@@ -80,7 +80,7 @@ export default function Layout({ children }: LayoutProps) {
                 Testimonials
               </Link>
               <Link
-                to="/login"
+                to="/portfolio/login"
                 className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-md text-sm font-medium hover:from-orange-600 hover:to-orange-700 transition-all shadow-md"
               >
                 Login

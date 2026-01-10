@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List, Optional
@@ -1070,6 +1070,20 @@ if frontend_build_path.exists() and index_file.exists():
             raise HTTPException(status_code=500, detail=f"Index file not found at {index_file}")
         return FileResponse(str(index_file))
     
+    @app.get("/accounting.html")
+    async def serve_accounting_html():
+        """Serve accounting.html directly"""
+        if accounting_file.exists():
+            return FileResponse(str(accounting_file))
+        raise HTTPException(status_code=404, detail="accounting.html not found")
+    
+    @app.get("/portfolio.html")
+    async def serve_portfolio_html():
+        """Serve portfolio.html directly"""
+        if portfolio_file.exists():
+            return FileResponse(str(portfolio_file))
+        raise HTTPException(status_code=404, detail="portfolio.html not found")
+    
     @app.get("/accounting")
     async def serve_accounting_root():
         """Serve SSRF Accounting app at /accounting"""
@@ -1086,6 +1100,11 @@ if frontend_build_path.exists() and index_file.exists():
         # Fallback to index if portfolio.html doesn't exist
         return FileResponse(str(index_file))
     
+    @app.get("/login")
+    async def serve_login():
+        """Redirect /login to portfolio login"""
+        return RedirectResponse(url="/portfolio/login", status_code=302)
+    
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
         """Serve frontend files, with fallback to appropriate HTML for client-side routing"""
@@ -1093,7 +1112,7 @@ if frontend_build_path.exists() and index_file.exists():
         if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("redoc") or full_path.startswith("openapi.json"):
             raise HTTPException(status_code=404, detail="Not found")
         
-        # Handle specific HTML files directly
+        # Handle specific HTML files directly (already handled above, but keep for safety)
         if full_path == "accounting.html":
             if accounting_file.exists():
                 return FileResponse(str(accounting_file))
