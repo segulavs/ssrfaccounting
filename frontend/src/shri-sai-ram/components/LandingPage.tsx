@@ -8,21 +8,18 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
           <div className="text-center">
             <h2 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6">
-              Invest in Far Off
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-orange-600">
-                Opportunities
-              </span>
+              Invest in real estate together, without the hassle or expense of managing property
             </h2>
-            <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              A co-operative company democratizing access to investment opportunities 
-              for everyone, everywhere.
+            <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto italic">
+              Alone we can do so little, together we can do so much.
             </p>
+            <p className="text-lg text-gray-500 mb-8 max-w-2xl mx-auto">— Helen Keller</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                to="/opportunities"
+                to="/contact"
                 className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:from-orange-600 hover:to-orange-700 transition-all transform hover:scale-105 shadow-lg text-center"
               >
-                Explore Opportunities
+                Contact us
               </Link>
               <Link
                 to="/about"
@@ -46,7 +43,7 @@ export default function LandingPage() {
       <section id="about" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h3 className="text-4xl font-bold text-gray-900 mb-4">About Us</h3>
+            <h3 className="text-4xl font-bold text-gray-900 mb-4">Who we are ?</h3>
             <div className="w-24 h-1 bg-gradient-to-r from-orange-500 to-orange-600 mx-auto"></div>
           </div>
           <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -55,16 +52,25 @@ export default function LandingPage() {
                 Shri Sai Ram Financials
               </h4>
               <p className="text-gray-600 mb-4 leading-relaxed">
-                We are a co-operative company built on the principle of financial inclusivity. 
-                Our mission is to break down barriers that have traditionally prevented 
-                individuals from accessing investment opportunities in distant and emerging markets.
+                Shri Sai Ram Financials was established to empower the community to be able to invest together 
+                into opportunities such as Real Estate, Start-Ups, providing Asset Backed Loans, and such 
+                instruments within Europe and outside as well.
               </p>
               <p className="text-gray-600 mb-4 leading-relaxed">
-                Through our co-operative model, we pool resources and expertise to make 
-                investments that would otherwise be out of reach for individual investors. 
-                We believe that everyone, regardless of their background or location, 
-                should have the opportunity to grow their wealth through strategic investments.
+                We scale-up by leveraging on the investments to be able to increase ROI, improve portfolio size 
+                and de-risk. Investments are pooled to a group which would continue to take enough leverage 
+                while managing the risk.
               </p>
+              <p className="text-gray-600 mb-4 leading-relaxed">
+                Investments are made with through analysis, review and agreements within the group who is 
+                investing per asset.
+              </p>
+              <Link
+                to="/about"
+                className="inline-block mt-4 text-orange-600 hover:text-orange-700 font-semibold"
+              >
+                Learn More →
+              </Link>
             </div>
             <div className="bg-gradient-to-br from-orange-50 to-blue-50 rounded-2xl p-8 shadow-lg">
               <div className="grid grid-cols-2 gap-6">
@@ -90,129 +96,96 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Mission Section */}
-      <section id="mission" className="py-20 bg-gradient-to-br from-orange-50 to-blue-50">
+      {/* What is a Cooperative Section */}
+      <section id="cooperative" className="py-20 bg-gradient-to-br from-orange-50 to-blue-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h3 className="text-4xl font-bold text-gray-900 mb-4">Our Mission</h3>
+            <h3 className="text-4xl font-bold text-gray-900 mb-4">What is a Cooperative?</h3>
             <div className="w-24 h-1 bg-gradient-to-r from-orange-500 to-orange-600 mx-auto mb-6"></div>
-            <p className="text-xl text-gray-700 max-w-3xl mx-auto">
-              To provide a way to invest into far off opportunities for everyone
-            </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow">
-              <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mb-6">
-                <svg
-                  className="w-8 h-8 text-orange-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
+          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-8 md:p-12">
+            <p className="text-lg text-gray-700 mb-6 leading-relaxed">
+              A cooperative company is formed by a group of individuals who come together to achieve 
+              shared economic goals. Members pool their resources and invest collectively, allowing for 
+              greater purchasing power and investment opportunities.
+            </p>
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+              <div className="bg-orange-50 rounded-xl p-6">
+                <h4 className="text-xl font-semibold text-gray-900 mb-3">Equal Say</h4>
+                <p className="text-gray-600">
+                  Each member has an equal say in decision-making, promoting democratic governance.
+                </p>
               </div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-3">Democratize Access</h4>
-              <p className="text-gray-600">
-                Making investment opportunities accessible to everyone, regardless of 
-                their financial background or geographic location.
+              <div className="bg-blue-50 rounded-xl p-6">
+                <h4 className="text-xl font-semibold text-gray-900 mb-3">Shared Benefits</h4>
+                <p className="text-gray-600">
+                  Profits are distributed among members based on their contributions, fostering a sense 
+                  of community and mutual benefit.
+                </p>
+              </div>
+            </div>
+            <p className="text-lg text-gray-700 leading-relaxed">
+              Investment Cooperative can be split per portfolio of assets, which would be used to invest 
+              and restrict the risks.
+            </p>
+            <Link
+              to="/about"
+              className="inline-block mt-6 text-orange-600 hover:text-orange-700 font-semibold"
+            >
+              Learn More →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Vision & Mission Section */}
+      <section id="vision-mission" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-2 gap-12">
+            <div className="bg-gradient-to-br from-orange-50 to-blue-50 rounded-2xl p-8 shadow-lg">
+              <h3 className="text-3xl font-bold text-gray-900 mb-6">Vision</h3>
+              <p className="text-xl text-gray-700 italic leading-relaxed">
+                Building a network of investors to scale great heights.
               </p>
             </div>
-            <div className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow">
-              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mb-6">
-                <svg
-                  className="w-8 h-8 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
-                  />
-                </svg>
-              </div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-3">Global Reach</h4>
-              <p className="text-gray-600">
-                Connecting investors with opportunities across the globe, breaking down 
-                traditional barriers and limitations.
-              </p>
-            </div>
-            <div className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow">
-              <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mb-6">
-                <svg
-                  className="w-8 h-8 text-orange-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-              </div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-3">Shared Growth</h4>
-              <p className="text-gray-600">
-                As a co-operative, we ensure that all members benefit from our collective 
-                investments and shared success.
+            <div className="bg-gradient-to-br from-blue-50 to-orange-50 rounded-2xl p-8 shadow-lg">
+              <h3 className="text-3xl font-bold text-gray-900 mb-6">Mission</h3>
+              <p className="text-xl text-gray-700 italic leading-relaxed">
+                To pool, work and invest together in opportunities and take bigger steps.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Opportunities Section */}
+      {/* Real Estate Investment Section */}
       <section id="opportunities" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h3 className="text-4xl font-bold text-gray-900 mb-4">Investment Opportunities</h3>
+            <h3 className="text-4xl font-bold text-gray-900 mb-4">Real Estate Investment</h3>
             <div className="w-24 h-1 bg-gradient-to-r from-orange-500 to-orange-600 mx-auto mb-6"></div>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Explore diverse investment opportunities from emerging markets and 
-              far-off destinations
-            </p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               {
-                title: 'Emerging Markets',
-                description: 'Access high-growth opportunities in developing economies',
-                icon: '📈',
+                title: 'Commercial',
+                description: 'Provides a good regular return, and long term tenancies.',
+                icon: '🏢',
               },
               {
-                title: 'Real Estate',
-                description: 'Invest in properties across different regions and markets',
+                title: 'Residential',
+                description: 'Provides good appreciations, with variable rental income.',
                 icon: '🏠',
               },
               {
-                title: 'Technology Startups',
-                description: 'Support innovative startups from around the world',
-                icon: '💻',
-              },
-              {
-                title: 'Commodities',
-                description: 'Diversify with investments in global commodity markets',
-                icon: '🌾',
-              },
-              {
-                title: 'Infrastructure',
-                description: 'Participate in large-scale infrastructure projects',
+                title: 'Re-Formation',
+                description: 'Construction of projects for investment purposes into the right properties.',
                 icon: '🏗️',
               },
               {
-                title: 'Renewable Energy',
-                description: 'Invest in sustainable energy projects globally',
-                icon: '⚡',
+                title: 'Global',
+                description: 'Globally investing based on identifying the right opportunities.',
+                icon: '🌍',
               },
             ].map((opportunity, index) => (
               <div
@@ -234,24 +207,14 @@ export default function LandingPage() {
       <section className="py-20 bg-gradient-to-r from-orange-500 to-orange-600">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h3 className="text-4xl font-bold text-white mb-6">
-            Ready to Start Your Investment Journey?
+            Let's work together on next project
           </h3>
-          <p className="text-xl text-orange-50 mb-8">
-            Join Shri Sai Ram Financials today and gain access to investment opportunities 
-            that were once out of reach.
-          </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              to="/portfolio/login"
+              to="/opportunities"
               className="bg-white text-orange-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-all transform hover:scale-105 shadow-lg text-center"
             >
-              Become a Member
-            </Link>
-            <Link
-              to="/portfolio/login"
-              className="border-2 border-white text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-white hover:text-orange-600 transition-all text-center"
-            >
-              Contact Us
+              Learn More
             </Link>
           </div>
         </div>

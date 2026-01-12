@@ -70,14 +70,6 @@ function App() {
     const path = window.location.pathname
     // Check if path starts with /portfolio (portfolio app)
     if (path.startsWith('/portfolio')) {
-      // If we're on /portfolio.html, the backend should redirect, but handle it here too
-      if (path === '/portfolio.html') {
-        // Backend should redirect, but if we're here, do client-side redirect
-        setTimeout(() => {
-          window.location.replace('/portfolio/')
-        }, 0)
-        return '/portfolio' // Return value during redirect
-      }
       return '/portfolio'
     }
     return '/'
@@ -195,6 +187,7 @@ function App() {
                       )
                     }
                   />
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Layout>
             ) : (

@@ -13,27 +13,70 @@ export default function AboutUs() {
 
       {/* Main Content */}
       <div className="space-y-16">
-        {/* Our Story */}
+        {/* Who we are */}
         <section className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-6">Our Story</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-6">Who we are ?</h2>
           <div className="prose prose-lg max-w-none text-gray-600 space-y-4">
             <p>
-              Shri Sai Ram Financials was founded with a vision to democratize investment opportunities 
-              for individuals across all economic backgrounds. We recognized that many promising investment 
-              opportunities in emerging markets and far-off destinations were accessible only to wealthy 
-              investors or large institutions.
+              Shri Sai Ram Financials was established to empower the community to be able to invest together 
+              into opportunities such as Real Estate, Start-Ups, providing Asset Backed Loans, and such 
+              instruments within Europe and outside as well.
             </p>
             <p>
-              As a co-operative company, we pool resources from our members to access these opportunities, 
-              making it possible for everyone to participate in investments that would otherwise be out of 
-              reach. Our cooperative model ensures that all members share in both the risks and rewards, 
-              fostering a sense of community and collective growth.
+              We scale-up by leveraging on the investments to be able to increase ROI, improve portfolio size 
+              and de-risk. Investments are pooled to a group which would continue to take enough leverage 
+              while managing the risk.
             </p>
             <p>
-              Since our inception, we have helped hundreds of members diversify their portfolios and 
-              achieve their financial goals through strategic investments in emerging markets, real estate, 
-              technology startups, and infrastructure projects around the globe.
+              Investments are made with through analysis, review and agreements within the group who is 
+              investing per asset.
             </p>
+          </div>
+        </section>
+
+        {/* What is a Cooperative */}
+        <section className="bg-gradient-to-br from-orange-50 to-blue-50 rounded-2xl shadow-lg p-8 md:p-12">
+          <h2 className="text-3xl font-bold text-gray-900 mb-6">What is a Cooperative?</h2>
+          <div className="prose prose-lg max-w-none text-gray-600 space-y-4">
+            <p>
+              A cooperative company is formed by a group of individuals who come together to achieve 
+              shared economic goals. Members pool their resources and invest collectively, allowing for 
+              greater purchasing power and investment opportunities.
+            </p>
+            <div className="grid md:grid-cols-2 gap-6 mt-6">
+              <div className="bg-white rounded-xl p-6 shadow-md">
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Each member</h3>
+                <p>
+                  has an equal say in decision-making, promoting democratic governance. Profits are 
+                  distributed among members based on their contributions, fostering a sense of community 
+                  and mutual benefit.
+                </p>
+              </div>
+              <div className="bg-white rounded-xl p-6 shadow-md">
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Investment Cooperative</h3>
+                <p>
+                  can be split per portfolio of assets, which would be used to invest and restrict the risks.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Vision & Mission */}
+        <section className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
+          <div className="grid md:grid-cols-2 gap-12">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-6">Vision</h2>
+              <p className="text-xl text-gray-700 italic leading-relaxed">
+                Building a network of investors to scale great heights.
+              </p>
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-6">Mission</h2>
+              <p className="text-xl text-gray-700 italic leading-relaxed">
+                To pool, work and invest together in opportunities and take bigger steps.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -156,27 +199,21 @@ export default function AboutUs() {
           </div>
         </section>
 
-        {/* Leadership Team */}
+        {/* Our Team */}
         <section>
-          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">Our Leadership</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">Our Team</h2>
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                name: 'Rajesh Kumar',
+                name: 'Dilip Kumar',
                 role: 'Chief Executive Officer',
-                description: 'With over 20 years of experience in finance and investments, Rajesh leads our strategic vision.',
+                description: 'With over 20 years of experience in finance and investments, Dilip leads our strategic vision.',
                 image: '👨‍💼',
               },
               {
-                name: 'Priya Sharma',
+                name: 'Lakshmi Segu',
                 role: 'Chief Investment Officer',
-                description: 'Priya brings expertise in global markets and emerging economies, identifying the best opportunities.',
-                image: '👩‍💼',
-              },
-              {
-                name: 'Amit Patel',
-                role: 'Head of Operations',
-                description: 'Amit ensures smooth operations and maintains the highest standards of transparency and governance.',
+                description: 'Lakshmi brings expertise in global markets and emerging economies, identifying the best opportunities.',
                 image: '👨‍🔧',
               },
             ].map((member, index) => (
@@ -202,7 +239,7 @@ export default function AboutUs() {
               <div className="text-orange-100">Active Members</div>
             </div>
             <div>
-              <div className="text-5xl font-bold mb-2">₹50Cr+</div>
+              <div className="text-5xl font-bold mb-2">€50M+</div>
               <div className="text-orange-100">Assets Under Management</div>
             </div>
             <div>

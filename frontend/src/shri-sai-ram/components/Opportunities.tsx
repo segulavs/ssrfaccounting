@@ -1,163 +1,110 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { opportunityAPI } from '../../api/portfolioClient'
+import { getPortfolioUrl } from '../App'
 
 interface Opportunity {
   id: number
   title: string
   category: string
-  location: string
+  location?: string
   description: string
   minInvestment: string
-  expectedReturn: string
-  duration: string
-  riskLevel: 'Low' | 'Medium' | 'High'
+  expectedReturn?: string
+  duration?: string
+  riskLevel?: 'Low' | 'Medium' | 'High'
   status: 'Open' | 'Filling' | 'Closed'
   image: string
+  currency: string
+  investment_amount?: number
+}
+
+// Map API type to display category
+const typeToCategory: Record<string, string> = {
+  'real_estate': 'Real Estate',
+  'commercial': 'Commercial',
+  'residential': 'Residential',
+  're_formation': 'Re-Formation',
+  'global': 'Global',
+  'private_equity': 'Private Equity',
+  'building_loan': 'Building Loan',
+  'technology': 'Technology',
+  'infrastructure': 'Infrastructure',
+  'renewable_energy': 'Renewable Energy',
+}
+
+// Get icon based on category/type
+const getCategoryIcon = (category: string): string => {
+  const categoryLower = category.toLowerCase()
+  if (categoryLower.includes('commercial')) return '🏢'
+  if (categoryLower.includes('residential')) return '🏠'
+  if (categoryLower.includes('re-formation') || categoryLower.includes('formation')) return '🏗️'
+  if (categoryLower.includes('global')) return '🌍'
+  if (categoryLower.includes('technology') || categoryLower.includes('tech')) return '💻'
+  if (categoryLower.includes('infrastructure')) return '🏗️'
+  if (categoryLower.includes('renewable') || categoryLower.includes('energy')) return '⚡'
+  if (categoryLower.includes('real estate')) return '🏘️'
+  return '📊'
 }
 
 export default function Opportunities() {
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
-  const [selectedRisk, setSelectedRisk] = useState<string>('All')
+  const [selectedStatus, setSelectedStatus] = useState<string>('All')
+  
+  useEffect(() => {
+    loadOpportunities()
+  }, [])
 
-  const categories = ['All', 'Real Estate', 'Technology', 'Infrastructure', 'Commodities', 'Renewable Energy', 'Emerging Markets']
-  const riskLevels = ['All', 'Low', 'Medium', 'High']
-
-  const opportunities: Opportunity[] = [
-    {
-      id: 1,
-      title: 'Bengaluru Tech Park Development',
-      category: 'Real Estate',
-      location: 'Bangalore, India',
-      description: 'Premium commercial real estate development in the heart of India\'s tech capital, targeting IT companies and startups.',
-      minInvestment: '₹50,000',
-      expectedReturn: '12-15%',
-      duration: '5-7 years',
-      riskLevel: 'Medium',
-      status: 'Open',
-      image: '🏢',
-    },
-    {
-      id: 2,
-      title: 'Southeast Asia FinTech Startup Fund',
-      category: 'Technology',
-      location: 'Singapore, Vietnam, Indonesia',
-      description: 'Investment in a diversified portfolio of early-stage fintech startups across Southeast Asia\'s rapidly growing markets.',
-      minInvestment: '₹25,000',
-      expectedReturn: '20-30%',
-      duration: '3-5 years',
-      riskLevel: 'High',
-      status: 'Filling',
-      image: '💻',
-    },
-    {
-      id: 3,
-      title: 'African Infrastructure Bonds',
-      category: 'Infrastructure',
-      location: 'Kenya, Ghana, Nigeria',
-      description: 'Government-backed infrastructure bonds for renewable energy and transportation projects in rapidly developing African economies.',
-      minInvestment: '₹1,00,000',
-      expectedReturn: '8-10%',
-      duration: '10 years',
-      riskLevel: 'Low',
-      status: 'Open',
-      image: '🏗️',
-    },
-    {
-      id: 4,
-      title: 'Solar Power Plant - Rajasthan',
-      category: 'Renewable Energy',
-      location: 'Rajasthan, India',
-      description: 'Large-scale solar power generation facility leveraging India\'s excellent solar resources and government incentives.',
-      minInvestment: '₹75,000',
-      expectedReturn: '10-12%',
-      duration: '15-20 years',
-      riskLevel: 'Low',
-      status: 'Open',
-      image: '⚡',
-    },
-    {
-      id: 5,
-      title: 'Brazilian Agricultural Commodities',
-      category: 'Commodities',
-      location: 'Brazil',
-      description: 'Investment in Brazilian soybean and coffee production, benefiting from strong global demand and favorable climate conditions.',
-      minInvestment: '₹60,000',
-      expectedReturn: '9-11%',
-      duration: '3-5 years',
-      riskLevel: 'Medium',
-      status: 'Open',
-      image: '🌾',
-    },
-    {
-      id: 6,
-      title: 'Vietnam Manufacturing Hub',
-      category: 'Emerging Markets',
-      location: 'Ho Chi Minh City, Vietnam',
-      description: 'Investment in manufacturing facilities catering to the growing electronics and textiles industries in Vietnam.',
-      minInvestment: '₹1,50,000',
-      expectedReturn: '15-18%',
-      duration: '5-8 years',
-      riskLevel: 'Medium',
-      status: 'Filling',
-      image: '🏭',
-    },
-    {
-      id: 7,
-      title: 'Eastern European Real Estate',
-      category: 'Real Estate',
-      location: 'Poland, Czech Republic',
-      description: 'Residential and commercial real estate in growing Eastern European cities with EU membership benefits.',
-      minInvestment: '₹2,00,000',
-      expectedReturn: '10-13%',
-      duration: '7-10 years',
-      riskLevel: 'Medium',
-      status: 'Open',
-      image: '🏠',
-    },
-    {
-      id: 8,
-      title: 'Green Hydrogen Production',
-      category: 'Renewable Energy',
-      location: 'Australia, Chile',
-      description: 'Next-generation green hydrogen production facilities using renewable energy, targeting the future energy transition.',
-      minInvestment: '₹1,00,000',
-      expectedReturn: '18-25%',
-      duration: '5-7 years',
-      riskLevel: 'High',
-      status: 'Open',
-      image: '🔋',
-    },
-  ]
-
-  const filteredOpportunities = opportunities.filter(opp => {
-    const categoryMatch = selectedCategory === 'All' || opp.category === selectedCategory
-    const riskMatch = selectedRisk === 'All' || opp.riskLevel === selectedRisk
-    return categoryMatch && riskMatch
-  })
-
-  const getRiskColor = (risk: string) => {
-    switch (risk) {
-      case 'Low':
-        return 'bg-green-100 text-green-800'
-      case 'Medium':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'High':
-        return 'bg-red-100 text-red-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
+  const loadOpportunities = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await opportunityAPI.getOpportunities()
+      
+      // Map API data to component interface
+      const mappedOpportunities: Opportunity[] = data.map((opp: any) => {
+        const category = typeToCategory[opp.type] || opp.type || 'Other'
+        return {
+          id: opp.id,
+          title: opp.title,
+          category: category,
+          description: opp.description || '',
+          minInvestment: opp.investment_amount 
+            ? `${opp.currency || 'EUR'} ${opp.investment_amount.toLocaleString()}`
+            : 'Contact for details',
+          status: opp.status === 'open' ? 'Open' : opp.status === 'closed' ? 'Closed' : 'Filling',
+          image: getCategoryIcon(category),
+          currency: opp.currency || 'EUR',
+          investment_amount: opp.investment_amount,
+        }
+      })
+      
+      setOpportunities(mappedOpportunities)
+    } catch (err: any) {
+      console.error('Failed to load opportunities:', err)
+      setError(err.response?.data?.detail || err.message || 'Failed to load opportunities')
+    } finally {
+      setLoading(false)
     }
   }
 
+  const filteredOpportunities = opportunities.filter(opp => {
+    const categoryMatch = selectedCategory === 'All' || opp.category === selectedCategory
+    const statusMatch = selectedStatus === 'All' || opp.status.toLowerCase() === selectedStatus.toLowerCase()
+    return categoryMatch && statusMatch
+  })
+  
+  // Get unique categories from loaded opportunities
+  const availableCategories = ['All', ...Array.from(new Set(opportunities.map(opp => opp.category))).sort()]
+
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Open':
-        return 'bg-blue-100 text-blue-800'
-      case 'Filling':
-        return 'bg-orange-100 text-orange-800'
-      case 'Closed':
-        return 'bg-gray-100 text-gray-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
+    const statusLower = status.toLowerCase()
+    if (statusLower === 'open') return 'bg-blue-100 text-blue-800'
+    if (statusLower === 'filling') return 'bg-orange-100 text-orange-800'
+    if (statusLower === 'closed') return 'bg-gray-100 text-gray-800'
+    return 'bg-gray-100 text-gray-800'
   }
 
   return (
@@ -165,12 +112,37 @@ export default function Opportunities() {
       {/* Header */}
       <div className="text-center mb-12">
         <h1 className="text-5xl font-extrabold text-gray-900 mb-4">
-          Investment <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-orange-600">Opportunities</span>
+          Real Estate <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-orange-600">Investment</span>
         </h1>
         <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          Explore diverse investment opportunities from emerging markets and far-off destinations
+          Explore diverse real estate investment opportunities from commercial properties to global markets
         </p>
       </div>
+
+      {/* Loading State */}
+      {loading && (
+        <div className="text-center py-12">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+          <p className="mt-4 text-gray-600">Loading opportunities...</p>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-8">
+          <p className="text-red-800">{error}</p>
+          <button
+            onClick={loadOpportunities}
+            className="mt-4 text-red-600 hover:text-red-700 font-medium underline"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {/* Content (only show if not loading) */}
+      {!loading && !error && (
+        <>
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-md p-6 mb-8">
@@ -180,7 +152,7 @@ export default function Opportunities() {
               Category
             </label>
             <div className="flex flex-wrap gap-2">
-              {categories.map(category => (
+              {availableCategories.map(category => (
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
@@ -197,20 +169,20 @@ export default function Opportunities() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Risk Level
+              Status
             </label>
             <div className="flex flex-wrap gap-2">
-              {riskLevels.map(risk => (
+              {['All', 'Open', 'Filling', 'Closed'].map(status => (
                 <button
-                  key={risk}
-                  onClick={() => setSelectedRisk(risk)}
+                  key={status}
+                  onClick={() => setSelectedStatus(status)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    selectedRisk === risk
+                    selectedStatus === status
                       ? 'bg-orange-500 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  {risk}
+                  {status}
                 </button>
               ))}
             </div>
@@ -231,54 +203,68 @@ export default function Opportunities() {
                 {opportunity.status}
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">{opportunity.title}</h3>
-              <p className="text-sm text-gray-600 mb-4">{opportunity.location}</p>
+              {opportunity.location && (
+                <p className="text-sm text-gray-600 mb-4">{opportunity.location}</p>
+              )}
+              {opportunity.category && (
+                <span className="inline-block px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-semibold">
+                  {opportunity.category}
+                </span>
+              )}
             </div>
             <div className="p-6">
-              <p className="text-gray-600 mb-4 text-sm leading-relaxed">{opportunity.description}</p>
+              <p className="text-gray-600 mb-4 text-sm leading-relaxed">{opportunity.description || 'No description available.'}</p>
               
               <div className="space-y-3 mb-4">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Minimum Investment:</span>
                   <span className="text-sm font-semibold text-gray-900">{opportunity.minInvestment}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Expected Return:</span>
-                  <span className="text-sm font-semibold text-green-600">{opportunity.expectedReturn} p.a.</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Duration:</span>
-                  <span className="text-sm font-semibold text-gray-900">{opportunity.duration}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Risk Level:</span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getRiskColor(opportunity.riskLevel)}`}>
-                    {opportunity.riskLevel}
-                  </span>
-                </div>
+                {opportunity.expectedReturn && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Expected Return:</span>
+                    <span className="text-sm font-semibold text-green-600">{opportunity.expectedReturn} p.a.</span>
+                  </div>
+                )}
+                {opportunity.duration && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Duration:</span>
+                    <span className="text-sm font-semibold text-gray-900">{opportunity.duration}</span>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t">
-                <button className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md">
+                <a
+                  href={getPortfolioUrl('/login')}
+                  className="block w-full text-center bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md"
+                >
                   Learn More
-                </button>
+                </a>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {filteredOpportunities.length === 0 && (
+      {filteredOpportunities.length === 0 && !loading && (
         <div className="text-center py-12">
-          <p className="text-gray-600 text-lg">No opportunities match your selected filters.</p>
-          <button
-            onClick={() => {
-              setSelectedCategory('All')
-              setSelectedRisk('All')
-            }}
-            className="mt-4 text-orange-600 hover:text-orange-700 font-medium"
-          >
-            Clear filters
-          </button>
+          <p className="text-gray-600 text-lg">
+            {opportunities.length === 0 
+              ? 'No investment opportunities available at the moment. Please check back later.'
+              : 'No opportunities match your selected filters.'}
+          </p>
+          {opportunities.length > 0 && (
+            <button
+              onClick={() => {
+                setSelectedCategory('All')
+                setSelectedStatus('All')
+              }}
+              className="mt-4 text-orange-600 hover:text-orange-700 font-medium"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       )}
 
@@ -290,14 +276,24 @@ export default function Opportunities() {
           Our expert team is here to guide you through the process.
         </p>
         <div className="flex flex-col sm:flex-row gap-4">
-          <button className="bg-white text-orange-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all">
+          <a
+            href={getPortfolioUrl('/login')}
+            className="bg-white text-orange-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all text-center"
+          >
             Become a Member
-          </button>
-          <button className="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-orange-600 transition-all">
+          </a>
+          <button
+            onClick={() => {
+              window.location.href = '/contact';
+            }}
+            className="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-orange-600 transition-all"
+          >
             Contact Our Team
           </button>
         </div>
       </div>
+        </>
+      )}
     </div>
   )
 }

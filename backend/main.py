@@ -24,6 +24,9 @@ from schemas import (
 )
 from typing import Union
 from portfolio_api import router as portfolio_router
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # Create database tables - wrap in try/except to prevent startup crashes
 try:
@@ -79,6 +82,88 @@ def health_check():
         "message": "SSRF Accounting API",
         "frontend_built": frontend_build_path.exists() and index_file.exists()
     }
+
+
+# Contact form endpoint
+class ContactForm(BaseModel):
+    name: str
+    email: str
+    subject: str
+    message: str
+
+
+@app.post("/api/contact")
+async def send_contact_email(contact: ContactForm):
+    """Send contact form email to info@shrisairamfinancials.nl"""
+    try:
+        # Email configuration from environment variables
+        smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        smtp_username = os.getenv("SMTP_USERNAME", "")
+        smtp_password = os.getenv("SMTP_PASSWORD", "")
+        from_email = os.getenv("FROM_EMAIL", smtp_username)
+        to_email = "info@shrisairamfinancials.nl"
+        
+        # If SMTP is not configured, just log the message (for development)
+        if not smtp_username or not smtp_password:
+            print("=" * 50)
+            print("CONTACT FORM SUBMISSION (SMTP not configured)")
+            print(f"From: {contact.name} <{contact.email}>")
+            print(f"Subject: {contact.subject}")
+            print(f"Message:\n{contact.message}")
+            print("=" * 50)
+            return {
+                "message": "Thank you for your message. We'll get back to you soon!",
+                "note": "Email sending not configured - message logged to console"
+            }
+        
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = from_email
+        msg['To'] = to_email
+        msg['Reply-To'] = contact.email
+        msg['Subject'] = f"Contact Form: {contact.subject}"
+        
+        # Email body
+        body = f"""
+New contact form submission from Shri Sai Ram Financials website:
+
+Name: {contact.name}
+Email: {contact.email}
+Subject: {contact.subject}
+
+Message:
+{contact.message}
+
+---
+This email was sent from the contact form on shrisairamfinancials.nl
+"""
+        
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Send email
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(msg)
+        
+        return {"message": "Thank you for your message! We'll get back to you soon."}
+    
+    except Exception as e:
+        import traceback
+        print(f"Error sending contact email: {e}")
+        print(traceback.format_exc())
+        # Log the message even if email fails
+        print("=" * 50)
+        print("CONTACT FORM SUBMISSION (Email sending failed)")
+        print(f"From: {contact.name} <{contact.email}>")
+        print(f"Subject: {contact.subject}")
+        print(f"Message:\n{contact.message}")
+        print("=" * 50)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to send email. Your message has been logged. Please try again or contact us directly at info@shrisairamfinancials.nl"
+        )
 
 @app.get("/health")
 def simple_health_check():
@@ -1077,8 +1162,12 @@ if frontend_build_path.exists() and index_file.exists():
     
     @app.get("/portfolio.html")
     async def serve_portfolio_html():
-        """Redirect portfolio.html to /portfolio/ for proper routing"""
-        return RedirectResponse(url="/portfolio/", status_code=301)
+        """Serve portfolio.html directly (for direct access)"""
+        print(f"[ROUTE] /portfolio.html - serving portfolio.html")
+        if portfolio_file.exists():
+            return FileResponse(str(portfolio_file), media_type="text/html")
+        print(f"[ROUTE] ERROR: portfolio.html not found at {portfolio_file}")
+        return FileResponse(str(index_file), media_type="text/html")
     
     @app.get("/accounting")
     async def serve_accounting_root():
@@ -1093,27 +1182,58 @@ if frontend_build_path.exists() and index_file.exists():
         # Fallback to index if accounting.html doesn't exist
         return FileResponse(str(index_file))
     
-    @app.get("/portfolio")
-    async def serve_portfolio_root():
-        """Redirect /portfolio to /portfolio/ for proper routing"""
-        return RedirectResponse(url="/portfolio/", status_code=301)
+    # Portfolio routes - MUST come before catch-all route for FastAPI to match them
+    # FastAPI matches routes in order, so these specific routes MUST come before /{full_path:path}
+    @app.get("/portfolio/login")
+    async def serve_portfolio_login():
+        """Serve portfolio app for /portfolio/login route - CRITICAL: must be before catch-all"""
+        print(f"[ROUTE] /portfolio/login - serving portfolio.html")
+        print(f"[ROUTE] portfolio_file: {portfolio_file}")
+        print(f"[ROUTE] portfolio_file.exists(): {portfolio_file.exists()}")
+        if portfolio_file.exists():
+            print(f"[ROUTE] ✓ Serving portfolio.html")
+            response = FileResponse(str(portfolio_file), media_type="text/html")
+            # Add cache control headers to prevent browser caching
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
+        print(f"[ROUTE] ✗ portfolio.html not found, serving index.html")
+        return FileResponse(str(index_file), media_type="text/html")
     
     @app.get("/portfolio/")
     async def serve_portfolio_root_with_slash():
         """Serve Portfolio app at /portfolio/"""
-        if portfolio_file.exists():
-            return FileResponse(str(portfolio_file))
-        # Fallback to index if portfolio.html doesn't exist
-        return FileResponse(str(index_file))
+        print(f"[ROUTE] /portfolio/ - redirecting to /portfolio/login")
+        return RedirectResponse(url="/portfolio/login", status_code=302)
+    
+    @app.get("/portfolio")
+    async def serve_portfolio_root():
+        """Redirect /portfolio to /portfolio/login for direct access"""
+        print(f"[ROUTE] /portfolio - redirecting to /portfolio/login")
+        return RedirectResponse(url="/portfolio/login", status_code=302)
     
     @app.get("/login")
     async def serve_login():
         """Redirect /login to portfolio login"""
+        print(f"[ROUTE] /login - redirecting to /portfolio/login")
         return RedirectResponse(url="/portfolio/login", status_code=302)
     
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
         """Serve frontend files, with fallback to appropriate HTML for client-side routing"""
+        print(f"[CATCH-ALL] full_path={full_path}")
+        
+        # CRITICAL: Check for portfolio paths FIRST before any other processing
+        # This ensures portfolio routes are handled even if they slip through the specific routes above
+        # NOTE: If this code runs, it means the specific routes above didn't match - this shouldn't happen
+        if full_path.startswith("portfolio"):
+            print(f"[CATCH-ALL] WARNING: Portfolio path caught by catch-all: {full_path}")
+            print(f"[CATCH-ALL] This should NOT happen - specific routes should have matched!")
+            if portfolio_file.exists():
+                return FileResponse(str(portfolio_file), media_type="text/html")
+            return FileResponse(str(index_file), media_type="text/html")
+        
         # Don't serve API routes or docs
         if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("redoc") or full_path.startswith("openapi.json"):
             raise HTTPException(status_code=404, detail="Not found")
@@ -1138,10 +1258,8 @@ if frontend_build_path.exists() and index_file.exists():
         if full_path.startswith("accounting/"):
             if accounting_file.exists():
                 return FileResponse(str(accounting_file))
-        # Check if path starts with portfolio/ to serve portfolio app (not just "portfolio" since that's handled above)
-        elif full_path.startswith("portfolio/"):
-            if portfolio_file.exists():
-                return FileResponse(str(portfolio_file))
+            return FileResponse(str(index_file))
+        # This check is redundant now since we check at the top, but keep for safety
         
         # Default: serve Shri Sai Ram Financials (index.html) for all other routes
         return FileResponse(str(index_file))
