@@ -273,7 +273,11 @@ export default function CashTransactions() {
                       <button
                         key={project.id}
                         type="button"
-                        onClick={() => addProjectTag(project.id)}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          addProjectTag(project.id)
+                        }}
                         className="w-full text-left px-4 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
                       >
                         {project.name}

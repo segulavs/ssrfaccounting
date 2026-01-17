@@ -8,8 +8,10 @@ export default function Transactions() {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [selectedProject, setSelectedProject] = useState<number | undefined>(undefined)
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editProjectIds, setEditProjectIds] = useState<number[]>([])
+  // Map of transaction ID to pending project IDs (for batch editing)
+  const [pendingTagChanges, setPendingTagChanges] = useState<Map<number, number[]>>(new Map())
+  // Currently focused transaction for search input (only one search can be active at a time)
+  const [focusedTransactionId, setFocusedTransactionId] = useState<number | null>(null)
   const [projectSearchTerm, setProjectSearchTerm] = useState('')
   const [showProjectDropdown, setShowProjectDropdown] = useState(false)
   const projectDropdownRef = useRef<HTMLDivElement>(null)
@@ -188,46 +190,92 @@ export default function Transactions() {
     }
   }
 
-  const handleUpdateProject = async (transactionId: number) => {
-    try {
-      const transaction = transactions.find((t) => t.id === transactionId)
-      if (!transaction) return
+  const handleSaveAllChanges = async () => {
+    if (pendingTagChanges.size === 0) return
 
-      if (editProjectIds.length === 0) {
-        // No projects selected, remove project assignment
-        await api.updateTransaction(transactionId, { project_id: undefined })
-      } else if (editProjectIds.length === 1) {
-        // Single project, update normally
-        await api.updateTransaction(transactionId, { project_id: editProjectIds[0] })
-      } else {
-        // Multiple projects, split the transaction
-        // This will create multiple transactions and delete the original
-        const result = await api.updateTransaction(transactionId, { project_ids: editProjectIds })
-        // Result could be an array of transactions if split, or single transaction
-        if (Array.isArray(result)) {
-          // Transaction was split into multiple transactions
-          // loadTransactions will refresh the list
+    try {
+      // Process all pending changes
+      for (const [transactionId, projectIds] of pendingTagChanges.entries()) {
+        const transaction = transactions.find((t) => t.id === transactionId)
+        if (!transaction) continue
+
+        if (projectIds.length === 0) {
+          // No projects selected, remove project assignment
+          await api.updateTransaction(transactionId, { project_id: undefined })
+        } else if (projectIds.length === 1) {
+          // Single project, update normally
+          await api.updateTransaction(transactionId, { project_id: projectIds[0] })
+        } else {
+          // Multiple projects, split the transaction
+          await api.updateTransaction(transactionId, { project_ids: projectIds })
         }
       }
       
-      setEditingId(null)
-      setEditProjectIds([])
+      // Clear pending changes and reload
+      setPendingTagChanges(new Map())
+      setFocusedTransactionId(null)
       setProjectSearchTerm('')
       setShowProjectDropdown(false)
       await loadTransactions()
     } catch (error) {
-      console.error('Failed to update transaction:', error)
-      alert('Failed to update transaction')
+      console.error('Failed to save changes:', error)
+      alert('Failed to save some changes. Please try again.')
     }
   }
 
-  const addProjectTag = (projectId: number) => {
-    if (!editProjectIds.includes(projectId)) {
-      setEditProjectIds([...editProjectIds, projectId])
+  const startEditingTags = (transactionId: number) => {
+    const transaction = transactions.find((t) => t.id === transactionId)
+    if (!transaction) return
+
+    // Initialize with existing projects if not already in pending changes
+    if (!pendingTagChanges.has(transactionId)) {
+      const existingProjectIds = transaction.projects ? transaction.projects.map(p => p.id) : (transaction.project_id ? [transaction.project_id] : [])
+      setPendingTagChanges(new Map(pendingTagChanges.set(transactionId, existingProjectIds)))
+    }
+    
+    setFocusedTransactionId(transactionId)
+    setProjectSearchTerm('')
+    setShowProjectDropdown(false)
+  }
+
+  const cancelEditingTags = (transactionId: number) => {
+    // Remove from pending changes if no changes were made
+    const originalTransaction = transactions.find((t) => t.id === transactionId)
+    if (originalTransaction) {
+      const originalProjectIds = originalTransaction.projects ? originalTransaction.projects.map(p => p.id) : (originalTransaction.project_id ? [originalTransaction.project_id] : [])
+      const pendingProjectIds = pendingTagChanges.get(transactionId) || []
+      
+      // Check if changes were made
+      const arraysEqual = (a: number[], b: number[]) => 
+        a.length === b.length && a.every((val, idx) => val === b[idx])
+      
+      if (arraysEqual(originalProjectIds, pendingProjectIds)) {
+        // No changes, remove from pending
+        const newMap = new Map(pendingTagChanges)
+        newMap.delete(transactionId)
+        setPendingTagChanges(newMap)
+      }
+    }
+    
+    if (focusedTransactionId === transactionId) {
+      setFocusedTransactionId(null)
       setProjectSearchTerm('')
+      setShowProjectDropdown(false)
+    }
+  }
+
+  const addProjectTag = (transactionId: number, projectId: number) => {
+    const currentProjectIds = pendingTagChanges.get(transactionId) || []
+    if (!currentProjectIds.includes(projectId)) {
+      const newMap = new Map(pendingTagChanges)
+      newMap.set(transactionId, [...currentProjectIds, projectId])
+      setPendingTagChanges(newMap)
+      setProjectSearchTerm('')
+      
       // Keep dropdown open if there are more projects to add
       setTimeout(() => {
-        if (getFilteredProjects([...editProjectIds, projectId]).length > 0) {
+        const updatedProjectIds = [...currentProjectIds, projectId]
+        if (getFilteredProjects(transactionId, updatedProjectIds).length > 0) {
           searchInputRef.current?.focus()
         } else {
           setShowProjectDropdown(false)
@@ -236,11 +284,14 @@ export default function Transactions() {
     }
   }
 
-  const removeProjectTag = (projectId: number) => {
-    setEditProjectIds(editProjectIds.filter((id) => id !== projectId))
+  const removeProjectTag = (transactionId: number, projectId: number) => {
+    const currentProjectIds = pendingTagChanges.get(transactionId) || []
+    const newMap = new Map(pendingTagChanges)
+    newMap.set(transactionId, currentProjectIds.filter((id) => id !== projectId))
+    setPendingTagChanges(newMap)
   }
 
-  const getFilteredProjects = (currentProjectIds: number[]) => {
+  const getFilteredProjects = (transactionId: number, currentProjectIds: number[]) => {
     return projects.filter(
       (project) =>
         project.name.toLowerCase().includes(projectSearchTerm.toLowerCase()) &&
@@ -253,7 +304,7 @@ export default function Transactions() {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node
       if (
-        editingId !== null &&
+        focusedTransactionId !== null &&
         projectDropdownRef.current &&
         !projectDropdownRef.current.contains(target) &&
         searchInputRef.current &&
@@ -264,13 +315,13 @@ export default function Transactions() {
       }
     }
 
-    if (editingId !== null) {
+    if (focusedTransactionId !== null) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [editingId, projectDropdownRef, searchInputRef])
+  }, [focusedTransactionId, projectDropdownRef, searchInputRef])
 
   const handleDeleteBatch = async (batchId: string) => {
     if (!confirm('Are you sure you want to delete all transactions from this upload? This cannot be undone.')) {
@@ -325,6 +376,14 @@ export default function Transactions() {
       <div className="mb-6 flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Bank Transactions</h2>
         <div className="flex gap-4 items-end">
+          {pendingTagChanges.size > 0 && (
+            <button
+              onClick={handleSaveAllChanges}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium"
+            >
+              Save All Changes ({pendingTagChanges.size})
+            </button>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Project</label>
             <select
@@ -403,13 +462,18 @@ export default function Transactions() {
                     </td>
                   </tr>
                 ) : (
-                  transactions.map((t) => (
+                  transactions.map((t) => {
+                    const pendingProjectIds = pendingTagChanges.get(t.id) || []
+                    const isEditing = pendingTagChanges.has(t.id)
+                    const isFocused = focusedTransactionId === t.id
+                    
+                    return (
                     <tr key={t.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm">
-                        {editingId === t.id ? (
+                        {isEditing ? (
                           <div className="relative w-full max-w-xs">
                             <div className="flex flex-wrap gap-2 p-2 border border-gray-300 rounded-md min-h-[36px] bg-white">
-                              {editProjectIds.map((projectId) => {
+                              {pendingProjectIds.map((projectId) => {
                                 const project = projects.find((p) => p.id === projectId)
                                 return project ? (
                                   <span
@@ -419,7 +483,7 @@ export default function Transactions() {
                                     {project.name}
                                     <button
                                       type="button"
-                                      onClick={() => removeProjectTag(projectId)}
+                                      onClick={() => removeProjectTag(t.id, projectId)}
                                       className="text-blue-600 hover:text-blue-800 focus:outline-none"
                                     >
                                       ×
@@ -427,86 +491,81 @@ export default function Transactions() {
                                   </span>
                                 ) : null
                               })}
-                              <input
-                                ref={searchInputRef}
-                                type="text"
-                                value={projectSearchTerm}
-                                onChange={(e) => {
-                                  setProjectSearchTerm(e.target.value)
-                                  setShowProjectDropdown(true)
-                                }}
-                                onFocus={() => {
-                                  setShowProjectDropdown(true)
-                                  // Ensure dropdown shows available projects
-                                  if (getFilteredProjects(editProjectIds).length > 0) {
+                              {isFocused && (
+                                <input
+                                  ref={searchInputRef}
+                                  type="text"
+                                  value={projectSearchTerm}
+                                  onChange={(e) => {
+                                    setProjectSearchTerm(e.target.value)
                                     setShowProjectDropdown(true)
-                                  }
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault()
-                                    const filtered = getFilteredProjects(editProjectIds)
-                                    if (filtered.length > 0) {
-                                      // Add first matching project
-                                      addProjectTag(filtered[0].id)
+                                  }}
+                                  onFocus={() => {
+                                    setShowProjectDropdown(true)
+                                    if (getFilteredProjects(t.id, pendingProjectIds).length > 0) {
+                                      setShowProjectDropdown(true)
                                     }
-                                  } else if (e.key === 'Escape') {
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault()
+                                      const filtered = getFilteredProjects(t.id, pendingProjectIds)
+                                      if (filtered.length > 0) {
+                                        addProjectTag(t.id, filtered[0].id)
+                                      }
+                                    } else if (e.key === 'Escape') {
+                                      setShowProjectDropdown(false)
+                                      setFocusedTransactionId(null)
+                                    }
+                                  }}
+                                  placeholder={pendingProjectIds.length === 0 ? 'Type to search projects...' : 'Add another project...'}
+                                  className="flex-1 min-w-[120px] border-0 outline-none focus:ring-0 text-sm"
+                                  autoFocus
+                                />
+                              )}
+                              {!isFocused && (
+                                <span 
+                                  className="text-blue-600 cursor-pointer hover:underline text-xs"
+                                  onClick={() => {
+                                    setFocusedTransactionId(t.id)
+                                    setProjectSearchTerm('')
                                     setShowProjectDropdown(false)
-                                  }
-                                }}
-                                placeholder={editProjectIds.length === 0 ? 'Type to search projects...' : 'Add another project...'}
-                                className="flex-1 min-w-[120px] border-0 outline-none focus:ring-0 text-sm"
-                                autoFocus
-                              />
+                                  }}
+                                >
+                                  {pendingProjectIds.length === 0 ? 'Click to add tags...' : 'Click to add more...'}
+                                </span>
+                              )}
                             </div>
-                            {showProjectDropdown && getFilteredProjects(editProjectIds).length > 0 && (
+                            {isFocused && showProjectDropdown && getFilteredProjects(t.id, pendingProjectIds).length > 0 && (
                               <div
                                 ref={projectDropdownRef}
                                 className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
                               >
-                                {getFilteredProjects(editProjectIds).length > 0 ? (
-                                  getFilteredProjects(editProjectIds).map((project) => (
-                                    <button
-                                      key={project.id}
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.preventDefault()
-                                        e.stopPropagation()
-                                        addProjectTag(project.id)
-                                      }}
-                                      className="w-full text-left px-4 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none text-sm"
-                                    >
-                                      {project.name}
-                                    </button>
-                                  ))
-                                ) : (
-                                  <div className="px-4 py-2 text-sm text-gray-500">
-                                    No projects found
-                                  </div>
-                                )}
+                                {getFilteredProjects(t.id, pendingProjectIds).map((project) => (
+                                  <button
+                                    key={project.id}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      addProjectTag(t.id, project.id)
+                                    }}
+                                    className="w-full text-left px-4 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none text-sm"
+                                  >
+                                    {project.name}
+                                  </button>
+                                ))}
                               </div>
                             )}
-                            {editProjectIds.length > 1 && (
+                            {pendingProjectIds.length > 1 && (
                               <p className="mt-1 text-xs text-gray-500">
-                                Amount will be split: {(t.amount / editProjectIds.length).toFixed(2)} {t.currency} per project
+                                Amount will be split: {(t.amount / pendingProjectIds.length).toFixed(2)} {t.currency} per project
                               </p>
                             )}
                             <div className="mt-2 flex gap-2">
                               <button
                                 type="button"
-                                onClick={() => handleUpdateProject(t.id)}
-                                className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-                              >
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingId(null)
-                                  setEditProjectIds([])
-                                  setProjectSearchTerm('')
-                                  setShowProjectDropdown(false)
-                                }}
+                                onClick={() => cancelEditingTags(t.id)}
                                 className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400"
                               >
                                 Cancel
@@ -527,14 +586,7 @@ export default function Transactions() {
                             ) : (
                               <span
                                 className="text-blue-600 cursor-pointer hover:underline"
-                                onClick={() => {
-                                  setEditingId(t.id)
-                                  // Initialize with existing projects or empty array
-                                  const existingProjectIds = t.projects ? t.projects.map(p => p.id) : (t.project_id ? [t.project_id] : [])
-                                  setEditProjectIds(existingProjectIds)
-                                  setProjectSearchTerm('')
-                                  setShowProjectDropdown(false)
-                                }}
+                                onClick={() => startEditingTags(t.id)}
                               >
                                 Click to tag
                               </span>
@@ -542,13 +594,7 @@ export default function Transactions() {
                             {t.projects && t.projects.length > 0 && (
                               <span
                                 className="text-blue-600 cursor-pointer hover:underline text-xs ml-1"
-                                onClick={() => {
-                                  setEditingId(t.id)
-                                  // Initialize with existing projects
-                                  setEditProjectIds(t.projects!.map(p => p.id))
-                                  setProjectSearchTerm('')
-                                  setShowProjectDropdown(false)
-                                }}
+                                onClick={() => startEditingTags(t.id)}
                               >
                                 Edit
                               </span>
@@ -572,6 +618,8 @@ export default function Transactions() {
                         {t.account_number || '-'}
                       </td>
                     </tr>
+                    )
+                  }))}
                   ))
                 )}
               </tbody>
